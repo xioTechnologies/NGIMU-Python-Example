@@ -1,54 +1,64 @@
-'''
-NGIMU Demo python v2.7 script written by Tom Mitchell (teamxe.co.uk) 2016
-Requires pyOSC https://trac.v2.nl/wiki/pyOSC
-'''
+import socket, threading, time, sys, argparse
+from pythonosc import udp_client, dispatcher, osc_server
 
-import socket, OSC, threading, time
+def process_arguments(argv):
+	parser = argparse.ArgumentParser(description="NGIMU python example")
+	parser.add_argument(
+		"--ip",
+		default="192.168.1.1",
+		help="NGIMU IP Adress")
+	parser.add_argument(
+		"--port",
+		type=int,
+		default=9000,
+		help="NGIMU Port")
 
-# Change this to the NGIMU IP address
-send_address = '192.168.1.1', 9000
+	return parser.parse_args(argv[1:])
 
-# Set the NGIMU to send to this machine's IP address
-c = OSC.OSCClient()
-c.connect(send_address)
-msg = OSC.OSCMessage()
-msg.setAddress('/wifi/send/ip')
-msg.append(str(socket.gethostbyname(socket.gethostname())))
-c.send(msg)
-c.close()
+def main(argv):
+	args = process_arguments(argv)
 
-# Set up receiver
-receive_address = '0.0.0.0', 8000
-s = OSC.OSCServer(receive_address)
-s.addDefaultHandlers()
+	# Set the NGIMU to send to this machine's IP address
+	client = udp_client.SimpleUDPClient(args.ip, args.port)
+	client.send_message(
+		'/wifi/send/ip',
+		str(socket.gethostbyname(socket.gethostname())))
 
-def sensorsHandler(add, tags, args, source):
-	print add + str(args)
+	def sensorsHandler(add, gx, gy, gz, ax, ay, az, mx, my, mz, b):
+		print('{} g[{},{},{}] a[{},{},{}] m[{},{},{}] b[{}]'.format(
+			add, gx, gy, gz, ax, ay, az, mx, my, mz, b))
 
-def quaternionHandler(add, tags, args, source):
-    print add + str(args)
+	def quaternionHandler(add, x, y, z, w):
+		print('{} [{},{},{},{}]'.format(add, x, y, z, w))
 
-def batteryHandler(add, tags, args, source):
-	print add + str(args)
+	def batteryHandler(add, pct, tte, v, i, state):
+		print('{}, {}%, remaining: {}, v:{}, i:{}, {}'.format(
+			add, pct, tte, v, i, state))
 
-# Add OSC handlers
-s.addMsgHandler("/sensors", sensorsHandler)
-s.addMsgHandler("/quaternion", quaternionHandler)
-s.addMsgHandler("/battery", batteryHandler)
+	dispatch = dispatcher.Dispatcher()
+	#dispatch.map('/sensors', print)
+	dispatch.map('/sensors', sensorsHandler)
+	dispatch.map('/quaternion', quaternionHandler)
+	dispatch.map('/battery', batteryHandler)
 
-# Start OSCServer
-print "\nUse ctrl-C to quit."
-st = threading.Thread(target = s.serve_forever)
-st.start()
+	# Set up receiver
+	receive_address = str(socket.gethostbyname(socket.gethostname())), 8089
+	server = osc_server.ThreadingOSCUDPServer(receive_address, dispatch)
 
-# Loop while threads are running
-try :
-	while 1 :
-		time.sleep(10)
+	print("\nUse ctrl-C to quit.")
+	# Start OSCServer
+	server_thread = threading.Thread(target=server.serve_forever)
+	server_thread.start()
 
-except KeyboardInterrupt :
-	print "\nClosing OSCServer."
-	s.close()
-	print "Waiting for Server-thread to finish"
-	st.join()
-	print "Done"
+	# Loop while threads are running
+	try :
+		while 1 :
+			time.sleep(1)
+
+	except KeyboardInterrupt :
+		server.shutdown()
+		server_thread.join()
+		return 0
+
+if __name__ == '__main__':
+	sys.exit(main(sys.argv))

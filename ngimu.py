@@ -6,7 +6,7 @@ def process_arguments(argv):
 	parser.add_argument(
 		"--ip",
 		default="192.168.1.1",
-		help="NGIMU IP Adress")
+		help="NGIMU IP Address")
 	parser.add_argument(
 		"--port",
 		type=int,

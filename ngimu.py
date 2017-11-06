@@ -36,7 +36,6 @@ def main(argv):
 			add, pct, tte, v, i, state))
 
 	dispatch = dispatcher.Dispatcher()
-	#dispatch.map('/sensors', print)
 	dispatch.map('/sensors', sensorsHandler)
 	dispatch.map('/quaternion', quaternionHandler)
 	dispatch.map('/battery', batteryHandler)

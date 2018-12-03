@@ -1,54 +1,25 @@
-'''
-NGIMU Demo python v2.7 script written by Tom Mitchell (teamxe.co.uk) 2016
-Requires pyOSC https://trac.v2.nl/wiki/pyOSC
-'''
+#NGIMU UDP Demo Python 3 script
+#Requires python-osc 1.7.0 https://pypi.org/project/python-osc/
 
-import socket, OSC, threading, time
+import argparse
+import math
 
-# Change this to the NGIMU IP address
-send_address = '192.168.1.1', 9000
+from pythonosc import dispatcher
+from pythonosc import osc_server
 
-# Set the NGIMU to send to this machine's IP address
-c = OSC.OSCClient()
-c.connect(send_address)
-msg = OSC.OSCMessage()
-msg.setAddress('/wifi/send/ip')
-msg.append(str(socket.gethostbyname(socket.gethostname())))
-c.send(msg)
-c.close()
+if __name__ == "__main__":
+  parser = argparse.ArgumentParser()
+  parser.add_argument("--ip", default="0.0.0.0", help="The ip to listen on")
+  parser.add_argument("--port",
+      type=int, default=8000, help="The port to listen on")
+  args = parser.parse_args()
 
-# Set up receiver
-receive_address = '0.0.0.0', 8000
-s = OSC.OSCServer(receive_address)
-s.addDefaultHandlers()
+  dispatcher = dispatcher.Dispatcher()
+#  dispatcher.map("/sensors", print)
+  dispatcher.map("/quaternion", print)
+#  dispatcher.map("/battery", print)
 
-def sensorsHandler(add, tags, args, source):
-	print add + str(args)
-
-def quaternionHandler(add, tags, args, source):
-    print add + str(args)
-
-def batteryHandler(add, tags, args, source):
-	print add + str(args)
-
-# Add OSC handlers
-s.addMsgHandler("/sensors", sensorsHandler)
-s.addMsgHandler("/quaternion", quaternionHandler)
-s.addMsgHandler("/battery", batteryHandler)
-
-# Start OSCServer
-print "\nUse ctrl-C to quit."
-st = threading.Thread(target = s.serve_forever)
-st.start()
-
-# Loop while threads are running
-try :
-	while 1 :
-		time.sleep(10)
-
-except KeyboardInterrupt :
-	print "\nClosing OSCServer."
-	s.close()
-	print "Waiting for Server-thread to finish"
-	st.join()
-	print "Done"
+  server = osc_server.ThreadingOSCUDPServer(
+      (args.ip, args.port), dispatcher)
+  print("Serving on {}".format(server.server_address))
+  server.serve_forever()

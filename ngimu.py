@@ -2,7 +2,6 @@
 #Requires python-osc 1.7.0 https://pypi.org/project/python-osc/
 
 import argparse
-import math
 
 from pythonosc import dispatcher
 from pythonosc import osc_server
